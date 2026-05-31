@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>XML to XSD Converter</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f8f7f4;--surface:#fff;--border:#e2e0d8;--border-focus:#a0a8f0;
+  --accent:#4f56e8;--accent-hover:#3f46d0;--accent-light:#eef0fd;
+  --text:#1a1a2e;--muted:#6b6b80;
+  --success:#1a7f4b;--success-bg:#ecfaf3;--success-border:#a3e0c0;
+  --error:#c0392b;--error-bg:#fdf0ee;--error-border:#f5b7b1;
+  --warn-bg:#fffbea;--warn-border:#f5d87a;--warn-text:#7a5c00;
+  --anno-bg:#fffde8;--anno-border:#f0d840;--anno-text:#5a4800;
+  --excel:#1d7044;--excel-bg:#eaf5ee;--excel-border:#7ecfa0;
+  --node-bg:#fff;--node-border:#4f56e8;--node-head:#4f56e8;--node-text:#fff;
+  --node-attr:#f0f4ff;--node-attr-text:#4f56e8;
+  --arrow:#6b6b80;--canvas-bg:#f0f2f8;
+  --mono:'JetBrains Mono','Fira Mono','Courier New',monospace;
+  --radius:10px;--radius-sm:6px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#111118;--surface:#1c1c28;--border:#2e2e42;--border-focus:#6672f5;
+  --accent:#6672f5;--accent-hover:#7a84f7;--accent-light:#1e2050;
+  --text:#e8e8f0;--muted:#8888a8;
+  --success:#3ecf7a;--success-bg:#0d2a1c;--success-border:#1d6640;
+  --error:#f07070;--error-bg:#2a1010;--error-border:#6a2020;
+  --warn-bg:#2a2410;--warn-border:#7a6010;--warn-text:#f0c840;
+  --anno-bg:#2a2610;--anno-border:#7a6800;--anno-text:#f0d840;
+  --excel:#3ecf7a;--excel-bg:#0d2a1c;--excel-border:#1d6640;
+  --node-bg:#1c1c28;--node-border:#6672f5;--node-head:#6672f5;--node-text:#fff;
+  --node-attr:#1e2050;--node-attr-text:#a0aaff;
+  --arrow:#8888a8;--canvas-bg:#0d0d18;
+}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 60px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 36px 32px;width:100%;max-width:820px;box-shadow:0 2px 24px rgba(0,0,0,0.07);}
+header{text-align:center;margin-bottom:28px;}
+.badge{display:inline-block;margin-bottom:12px;background:var(--accent-light);color:var(--accent);border:1px solid var(--border-focus);font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.05em;text-transform:uppercase;}
+header h1{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;}
+header p{font-size:.88rem;color:var(--muted);margin-top:6px;}
+.tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.tab{padding:8px 18px;font-size:.875rem;font-weight:500;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+#dropZone,#annoDropZone{border:2px dashed var(--border);border-radius:var(--radius);padding:36px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;background:var(--bg);}
+#dropZone.over,#annoDropZone.over{background:var(--accent-light);border-color:var(--accent);}
+.drop-icon{font-size:40px;color:var(--muted);}
+.drop-title{font-size:1rem;font-weight:600;margin:10px 0 4px;}
+.drop-sub{font-size:.84rem;color:var(--muted);margin-bottom:14px;}
+.browse-btn{display:inline-block;padding:7px 18px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;cursor:pointer;}
+.file-pill{display:none;margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--success-border);background:var(--success-bg);align-items:center;gap:10px;}
+.file-pill .fi-icon{font-size:20px;color:var(--success);}
+.file-pill .fi-name{flex:1;font-size:.875rem;font-weight:600;}
+.file-pill .fi-size{font-size:.78rem;color:var(--muted);}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:2px;}
+.icon-btn:hover{color:var(--error);}
+#errorBox{display:none;margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--error-border);background:var(--error-bg);color:var(--error);font-size:.84rem;}
+#convertBtn{margin-top:16px;width:100%;padding:12px;font-size:.95rem;font-weight:600;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;cursor:pointer;transition:background .15s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+#convertBtn:hover:not(:disabled){background:var(--accent-hover);}
+#convertBtn:disabled{opacity:.38;cursor:not-allowed;}
+#resultSection{display:none;margin-top:24px;}
+.result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;}
+.result-label{font-size:.875rem;font-weight:600;}
+.result-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.action-btn{display:flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.8rem;cursor:pointer;transition:background .12s;white-space:nowrap;}
+.action-btn:hover{background:var(--bg);}
+.action-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.action-btn.primary:hover{background:var(--accent-hover);}
+.action-btn.excel{background:var(--excel-bg);color:var(--excel);border-color:var(--excel-border);}
+.action-btn.diag{background:var(--accent-light);color:var(--accent);border-color:var(--border-focus);}
+textarea#xsdOutput{width:100%;height:280px;font-family:var(--mono);font-size:.78rem;line-height:1.7;padding:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);resize:vertical;}
+#statsLine{margin-top:8px;font-size:.78rem;color:var(--muted);}
+.anno-intro{padding:12px 16px;border-radius:var(--radius-sm);border:1px solid var(--warn-border);background:var(--warn-bg);color:var(--warn-text);font-size:.84rem;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start;}
+#fieldList{display:flex;flex-direction:column;gap:6px;}
+.field-row{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;}
+.field-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;}
+.field-header:hover{background:var(--bg);}
+.field-path{flex:1;font-size:.84rem;font-weight:500;}
+.fpath-parent{color:var(--muted);font-weight:400;}
+.field-type{font-size:.72rem;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:600;}
+.field-has-anno{font-size:.72rem;padding:2px 8px;border-radius:20px;background:var(--anno-bg);color:var(--anno-text);border:1px solid var(--anno-border);font-weight:600;}
+.field-toggle{color:var(--muted);font-size:16px;transition:transform .18s;}
+.field-toggle.open{transform:rotate(90deg);}
+.field-body{display:none;padding:0 14px 14px;}
+.field-body.open{display:block;}
+.field-body label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:6px;}
+.field-body textarea{width:100%;min-height:70px;font-family:inherit;font-size:.84rem;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);resize:vertical;line-height:1.5;transition:border-color .15s;}
+.field-body textarea:focus{outline:none;border-color:var(--border-focus);}
+.field-body textarea::placeholder{color:var(--muted);font-style:italic;}
+.field-meta{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;}
+.field-meta label{font-size:.78rem;color:var(--muted);margin-bottom:0;}
+.field-meta select{font-size:.8rem;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;}
+.save-anno-btn{margin-top:10px;padding:6px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.8rem;cursor:pointer;}
+.save-anno-btn.saved{color:var(--success);border-color:var(--success-border);}
+#annoExportBar{display:none;margin-top:20px;padding:16px;border-radius:var(--radius);border:1px solid var(--success-border);background:var(--success-bg);}
+#annoExportBar .export-msg{font-size:.84rem;color:var(--success);font-weight:500;margin-bottom:12px;}
+#annoExportBar .export-btns{display:flex;gap:10px;flex-wrap:wrap;}
+
+/* ══ DIAGRAM ══ */
+#diagPanel{padding-top:4px;}
+.diag-intro{padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);font-size:.82rem;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.diag-intro span{flex:1;}
+.diag-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.diag-toolbar .zoom-info{font-size:.78rem;color:var(--muted);padding:4px 8px;}
+
+#diagCanvas{
+  width:100%;height:600px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--canvas-bg);
+  overflow:hidden;position:relative;cursor:grab;
+}
+#diagCanvas.grabbing{cursor:grabbing;}
+#diagSvg{position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;}
+
+/* Node styles in SVG via foreignObject or pure SVG */
+.diag-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:.9rem;gap:8px;flex-direction:column;}
+
+/* Tooltip */
+#diagTooltip{
+  position:fixed;pointer-events:none;display:none;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 14px;
+  font-size:.8rem;color:var(--text);
+  box-shadow:0 4px 20px rgba(0,0,0,.15);
+  max-width:280px;z-index:1000;line-height:1.6;
+}
+#diagTooltip strong{color:var(--accent);display:block;margin-bottom:4px;}
+
+footer{margin-top:28px;font-size:.78rem;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="card">
+  <header>
+    <div class="badge">Valorisation Chrome</div>
+    <h1>XML to XSD Converter</h1>
+    <p>Generate, visualize, annotate and export your XSD schemas</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('convert')"><i class="ti ti-transform" style="font-size:15px;vertical-align:-2px;margin-right:5px;"></i>Convert</button>
+    <button class="tab" onclick="switchTab('annotate')"><i class="ti ti-message-2" style="font-size:15px;vertical-align:-2px;margin-right:5px;"></i>Annotate</button>
+    <button class="tab" onclick="switchTab('diagram')"><i class="ti ti-hierarchy-2" style="font-size:15px;vertical-align:-2px;margin-right:5px;"></i>Diagram</button>
+  </div>
+
+  <!-- CONVERT -->
+  <div class="tab-panel active" id="panel-convert">
+    <div id="dropZone">
+      <i class="ti ti-file-type-xml drop-icon"></i>
+      <p class="drop-title">Drop your XML file here</p>
+      <p class="drop-sub">or click to browse</p>
+      <label><input type="file" id="fileInput" accept=".xml" style="display:none;"><span class="browse-btn">Browse…</span></label>
+    </div>
+    <div id="fileInfo" class="file-pill">
+      <i class="ti ti-file-check fi-icon"></i>
+      <span id="fileName" class="fi-name"></span>
+      <span id="fileSize" class="fi-size"></span>
+      <button id="clearBtn" class="icon-btn"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="errorBox"></div>
+    <button id="convertBtn" disabled><i class="ti ti-transform" style="font-size:18px;"></i>Convert to XSD</button>
+    <div id="resultSection">
+      <div class="result-header">
+        <span class="result-label"><i class="ti ti-file-code" style="font-size:15px;vertical-align:-2px;margin-right:6px;"></i>Generated XSD Schema</span>
+        <div class="result-actions">
+          <button id="copyBtn" class="action-btn"><i class="ti ti-copy"></i> Copy</button>
+          <button id="downloadBtn" class="action-btn primary"><i class="ti ti-download"></i> Download .xsd</button>
+          <button id="goAnnotateBtn" class="action-btn" style="border-color:var(--anno-border);color:var(--anno-text);background:var(--anno-bg);"><i class="ti ti-message-2"></i> Annotate</button>
+          <button id="goDiagBtn" class="action-btn diag"><i class="ti ti-hierarchy-2"></i> Diagram</button>
+        </div>
+      </div>
+      <textarea id="xsdOutput" readonly></textarea>
+      <p id="statsLine"></p>
+    </div>
+  </div>
+
+  <!-- ANNOTATE -->
+  <div class="tab-panel" id="panel-annotate">
+    <div class="anno-intro"><i class="ti ti-info-circle" style="font-size:18px;flex-shrink:0;"></i><div>Load an XSD file or go to <strong>Convert → Annotate</strong>. Add comments and statuses, then export the annotated XSD and/or the tracking Excel file.</div></div>
+    <div id="annoDropZone">
+      <i class="ti ti-file-code" style="font-size:36px;color:var(--muted);"></i>
+      <p class="drop-title" style="margin:8px 0 4px;">Drop an .xsd file here</p>
+      <p class="drop-sub">or click to browse</p>
+      <label style="margin-top:2px;display:inline-block;"><input type="file" id="annoFileInput" accept=".xsd" style="display:none;"><span class="browse-btn">Browse…</span></label>
+    </div>
+    <div id="annoFileInfo" class="file-pill">
+      <i class="ti ti-file-check fi-icon"></i>
+      <span id="annoFileName" class="fi-name"></span>
+      <button id="annoClearBtn" class="icon-btn"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="fieldList" style="margin-top:16px;"></div>
+    <div id="annoExportBar">
+      <div class="export-msg" id="annoExportMsg"></div>
+      <div class="export-btns">
+        <button id="annoXsdBtn" class="action-btn primary"><i class="ti ti-download"></i> Annotated XSD</button>
+        <button id="annoXlsxBtn" class="action-btn excel"><i class="ti ti-table"></i> Export Excel (.xlsx)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIAGRAM -->
+  <div class="tab-panel" id="panel-diagram">
+    <div id="diagPanel">
+      <div class="diag-intro">
+        <i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0;"></i>
+        <span>Convert an XML or load an XSD to display the diagram. <strong>Drag</strong> to pan · <strong>Scroll</strong> to zoom · <strong>Hover</strong> a node for details.</span>
+      </div>
+      <div class="diag-toolbar">
+        <button class="action-btn" onclick="zoomDiag(0.15)"><i class="ti ti-zoom-in"></i> Zoom In</button>
+        <button class="action-btn" onclick="zoomDiag(-0.15)"><i class="ti ti-zoom-out"></i> Zoom Out</button>
+        <button class="action-btn" onclick="resetDiag()"><i class="ti ti-focus-centered"></i> Reset View</button>
+        <button class="action-btn" id="diagXsdLoad" onclick="document.getElementById('diagXsdInput').click()"><i class="ti ti-upload"></i> Load XSD</button>
+        <input type="file" id="diagXsdInput" accept=".xsd" style="display:none;">
+        <span class="zoom-info" id="zoomLabel">100%</span>
+        <button class="action-btn" onclick="downloadSVG()"><i class="ti ti-download"></i> SVG</button>
+        <button class="action-btn" onclick="downloadPNG()"><i class="ti ti-photo-down"></i> PNG</button>
+      </div>
+      <div id="diagCanvas">
+        <div class="diag-empty" id="diagEmpty">
+          <i class="ti ti-hierarchy-2" style="font-size:40px;"></i>
+          <span>No schema loaded</span>
+          <span style="font-size:.78rem;">Convert an XML or load an XSD</span>
+        </div>
+        <svg id="diagSvg" style="display:none;"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="diagTooltip"></div>
+<footer>Runs entirely in your browser · no data sent to any server</footer>
+
+<script>
+// ══════════════════════════════════════
+// TABS
+// ══════════════════════════════════════
+function switchTab(name){
+  const names=['convert','annotate','diagram'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
+}
+
+// ══════════════════════════════════════
+// CONVERT
+// ══════════════════════════════════════
+const dropZone=document.getElementById('dropZone'),fileInput=document.getElementById('fileInput'),
+  fileInfo=document.getElementById('fileInfo'),fileNameEl=document.getElementById('fileName'),
+  fileSizeEl=document.getElementById('fileSize'),clearBtn=document.getElementById('clearBtn'),
+  errorBox=document.getElementById('errorBox'),convertBtn=document.getElementById('convertBtn'),
+  resultSec=document.getElementById('resultSection'),xsdOutput=document.getElementById('xsdOutput'),
+  copyBtn=document.getElementById('copyBtn'),downloadBtn=document.getElementById('downloadBtn'),
+  statsLine=document.getElementById('statsLine'),goAnnotateBtn=document.getElementById('goAnnotateBtn'),
+  goDiagBtn=document.getElementById('goDiagBtn');
+let currentFile=null,currentXmlName='';
+function showError(m){errorBox.textContent=m;errorBox.style.display='block';}
+function clearError(){errorBox.style.display='none';}
+function setFile(f){
+  if(!f.name.toLowerCase().endsWith('.xml')){showError('File must be in .xml format');return;}
+  clearError();currentFile=f;currentXmlName=f.name.replace(/\.xml$/i,'');
+  fileNameEl.textContent=f.name;fileSizeEl.textContent=(f.size/1024).toFixed(1)+' Ko';
+  fileInfo.style.display='flex';convertBtn.disabled=false;resultSec.style.display='none';
+}
+function clearFile(){currentFile=null;fileInfo.style.display='none';convertBtn.disabled=true;resultSec.style.display='none';clearError();fileInput.value='';}
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('over');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+dropZone.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',()=>{if(fileInput.files[0])setFile(fileInput.files[0]);});
+clearBtn.addEventListener('click',e=>{e.stopPropagation();clearFile();});
+
+function detectType(v){if(!v||!v.trim())return'xs:string';const s=v.trim();if(/^-?\d+$/.test(s))return'xs:integer';if(/^-?\d+\.\d+$/.test(s))return'xs:decimal';if(/^(true|false)$/i.test(s))return'xs:boolean';if(/^\d{4}-\d{2}-\d{2}$/.test(s))return'xs:date';if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s))return'xs:dateTime';return'xs:string';}
+function bestType(s){if(!s||!s.size)return'xs:string';return s.size===1?[...s][0]:'xs:string';}
+function collectInfo(el,infos,path){const tag=el.tagName.replace(/.*:/,'');const cur=path?path+'/'+tag:tag;if(!infos[cur])infos[cur]={children:new Set(),attrs:{},types:new Set(),multiples:new Set()};const children=Array.from(el.children);if(children.length){const cnt={};children.forEach(c=>{const n=c.tagName.replace(/.*:/,'');infos[cur].children.add(n);cnt[n]=(cnt[n]||0)+1;});Object.entries(cnt).forEach(([n,c])=>{if(c>1)infos[cur].multiples.add(n);});}else{infos[cur].types.add(detectType(el.textContent));}Array.from(el.attributes).forEach(a=>{const an=a.name.replace(/.*:/,'');if(!infos[cur].attrs[an])infos[cur].attrs[an]=new Set();infos[cur].attrs[an].add(detectType(a.value));});children.forEach(c=>collectInfo(c,infos,cur));}
+function genEl(name,path,infos,indent){const pad='  '.repeat(indent);const info=infos[path]||{children:new Set(),attrs:{},types:new Set(),multiples:new Set()};const lines=[];if(info.children.size||Object.keys(info.attrs).length){lines.push(`${pad}<xs:element name="${name}">`);lines.push(`${pad}  <xs:complexType>`);if(info.children.size){lines.push(`${pad}    <xs:sequence>`);[...info.children].sort().forEach(cn=>{const cp=path+'/'+cn;const maxO=info.multiples.has(cn)?'unbounded':'1';const ci=infos[cp]||{children:new Set(),attrs:{},types:new Set(),multiples:new Set()};const occ=maxO==='unbounded'?' minOccurs="0" maxOccurs="unbounded"':' minOccurs="0"';if(ci.children.size||Object.keys(ci.attrs).length){const sub=genEl(cn,cp,infos,indent+4);if(maxO==='unbounded'&&sub.length)sub[0]=sub[0].replace(`name="${cn}"`,`name="${cn}" minOccurs="0" maxOccurs="unbounded"`);lines.push(...sub);}else{lines.push(`${pad}      <xs:element name="${cn}" type="${bestType(ci.types)}"${occ}/>`); }});lines.push(`${pad}    </xs:sequence>`);}Object.entries(info.attrs).sort().forEach(([an,at])=>{lines.push(`${pad}    <xs:attribute name="${an}" type="${bestType(at)}"/>`);});lines.push(`${pad}  </xs:complexType>`);lines.push(`${pad}</xs:element>`);}else{lines.push(`${pad}<xs:element name="${name}" type="${bestType(info.types)}" minOccurs="0"/>`);}return lines;}
+function xmlToXsd(xmlDoc){const root=xmlDoc.documentElement;const rootTag=root.tagName.replace(/.*:/,'');const infos={};collectInfo(root,infos,'');const ri=infos[rootTag]||{children:new Set(),attrs:{},types:new Set(),multiples:new Set()};const lines=['<?xml version="1.0" encoding="UTF-8"?>','<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">','',`  <xs:element name="${rootTag}">`,`    <xs:complexType>`];if(ri.children.size){lines.push(`      <xs:sequence>`);[...ri.children].sort().forEach(cn=>{const cp=rootTag+'/'+cn;const maxO=ri.multiples.has(cn)?'unbounded':'1';const ci=infos[cp]||{children:new Set(),attrs:{},types:new Set(),multiples:new Set()};const occ=maxO==='unbounded'?' minOccurs="0" maxOccurs="unbounded"':' minOccurs="0"';if(ci.children.size||Object.keys(ci.attrs).length){const sub=genEl(cn,cp,infos,4);if(maxO==='unbounded'&&sub.length)sub[0]=sub[0].replace(`name="${cn}"`,`name="${cn}" minOccurs="0" maxOccurs="unbounded"`);lines.push(...sub);}else{lines.push(`        <xs:element name="${cn}" type="${bestType(ci.types)}"${occ}/>`); }});lines.push(`      </xs:sequence>`);}Object.entries(ri.attrs).sort().forEach(([an,at])=>{lines.push(`      <xs:attribute name="${an}" type="${bestType(at)}"/>`);});lines.push(`    </xs:complexType>`,`  </xs:element>`,``,`</xs:schema>`);return lines.join('\n');}
+
+convertBtn.addEventListener('click',()=>{
+  if(!currentFile)return;clearError();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const parser=new DOMParser();
+      const xmlDoc=parser.parseFromString(e.target.result,'text/xml');
+      const err=xmlDoc.querySelector('parsererror');
+      if(err){showError('Invalid XML: '+err.textContent.split('\n')[0]);return;}
+      const xsd=xmlToXsd(xmlDoc);
+      xsdOutput.value=xsd;resultSec.style.display='block';
+      const elCount=Math.round((xsd.match(/xs:element/g)||[]).length/2);
+      statsLine.textContent=`${elCount} element(s) detected · no data sent to any server`;
+      xsdOutput.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }catch(ex){showError('Error: '+ex.message);}
+  };
+  reader.readAsText(currentFile,'UTF-8');
+});
+copyBtn.addEventListener('click',()=>{navigator.clipboard.writeText(xsdOutput.value).then(()=>{copyBtn.innerHTML='<i class="ti ti-check"></i> Copié !';setTimeout(()=>{copyBtn.innerHTML='<i class="ti ti-copy"></i> Copy';},1800);});});
+downloadBtn.addEventListener('click',()=>{const blob=new Blob([xsdOutput.value],{type:'application/xml'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=currentXmlName+'.xsd';a.click();URL.revokeObjectURL(url);});
+goAnnotateBtn.addEventListener('click',()=>{loadXsdForAnnotation(xsdOutput.value,currentXmlName+'.xsd');switchTab('annotate');});
+goDiagBtn.addEventListener('click',()=>{renderDiagram(xsdOutput.value);switchTab('diagram');});
+
+// ══════════════════════════════════════
+// ANNOTATE
+// ══════════════════════════════════════
+const annoDropZone=document.getElementById('annoDropZone'),annoFileInput=document.getElementById('annoFileInput'),
+  annoFileInfo=document.getElementById('annoFileInfo'),annoFileName=document.getElementById('annoFileName'),
+  annoClearBtn=document.getElementById('annoClearBtn'),fieldList=document.getElementById('fieldList'),
+  annoExportBar=document.getElementById('annoExportBar'),annoExportMsg=document.getElementById('annoExportMsg'),
+  annoXsdBtn=document.getElementById('annoXsdBtn'),annoXlsxBtn=document.getElementById('annoXlsxBtn');
+let currentXsdContent='',currentXsdFileName='',annotations={},allFields=[];
+const STATUTS=[{val:'',label:'— Status —'},{val:'✅ Validated',label:'✅ Validated'},{val:'🔄 In progress',label:'🔄 In progress'},{val:'❓ To clarify',label:'❓ To clarify'},{val:'⚠️ To update',label:'⚠️ To update'},{val:'❌ Rejected',label:'❌ Rejected'}];
+annoDropZone.addEventListener('dragover',e=>{e.preventDefault();annoDropZone.classList.add('over');});
+annoDropZone.addEventListener('dragleave',()=>annoDropZone.classList.remove('over'));
+annoDropZone.addEventListener('drop',e=>{e.preventDefault();annoDropZone.classList.remove('over');if(e.dataTransfer.files[0])loadAnnoFile(e.dataTransfer.files[0]);});
+annoDropZone.addEventListener('click',()=>annoFileInput.click());
+annoFileInput.addEventListener('change',()=>{if(annoFileInput.files[0])loadAnnoFile(annoFileInput.files[0]);});
+annoClearBtn.addEventListener('click',()=>{currentXsdContent='';currentXsdFileName='';annotations={};allFields=[];annoFileInfo.style.display='none';annoDropZone.style.display='';fieldList.innerHTML='';annoExportBar.style.display='none';});
+function loadAnnoFile(file){const reader=new FileReader();reader.onload=e=>loadXsdForAnnotation(e.target.result,file.name);reader.readAsText(file,'UTF-8');}
+function loadXsdForAnnotation(xsdContent,fname){currentXsdContent=xsdContent;currentXsdFileName=fname||'schema.xsd';annotations={};allFields=[];annoFileName.textContent=currentXsdFileName;annoFileInfo.style.display='flex';annoDropZone.style.display='none';buildFieldList(xsdContent);updateExportBar();}
+function buildFieldList(xsd){
+  fieldList.innerHTML='';allFields=[];
+  const parser=new DOMParser();const doc=parser.parseFromString(xsd,'text/xml');
+  function walk(el,path){const tag=el.tagName.replace(/.*:/,'');if(tag==='element'){const name=el.getAttribute('name');if(name){const curPath=path?path+' › '+name:name;const type=el.getAttribute('type')||'';const hasComplex=!!el.querySelector('complexType');const existingAnno=el.querySelector('annotation > documentation');if(existingAnno&&existingAnno.textContent.trim())annotations[curPath]={comment:existingAnno.textContent.trim(),statut:''};allFields.push({path:curPath,name,type:hasComplex?'complexType':type,hasComplex});Array.from(el.children).forEach(c=>walk(c,curPath));}else{Array.from(el.children).forEach(c=>walk(c,path));}}else{Array.from(el.children).forEach(c=>walk(c,path));}}
+  Array.from(doc.documentElement.children).forEach(c=>walk(c,''));
+  if(!allFields.length){fieldList.innerHTML='<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:20px;">No elements found.</p>';return;}
+  allFields.forEach(({path,name,type})=>{
+    const parts=path.split(' › ');const parentPath=parts.slice(0,-1).join(' › ');
+    const anno=annotations[path]||{comment:'',statut:''};const hasAnno=!!(anno.comment||anno.statut);
+    const row=document.createElement('div');row.className='field-row';
+    const statusOpts=STATUTS.map(s=>`<option value="${s.val}"${anno.statut===s.val?' selected':''}>${s.label}</option>`).join('');
+    row.innerHTML=`<div class="field-header" onclick="toggleField(this)"><div class="field-path">${parentPath?`<span class="fpath-parent">${parentPath} › </span>`:''}<span>${name}</span></div>${type?`<span class="field-type">${type.replace('xs:','')}</span>`:''}<span id="badge-${path.replace(/[^a-zA-Z0-9]/g,'_')}" class="field-has-anno" style="${hasAnno?'':'display:none'}">💬 annotated</span><i class="ti ti-chevron-right field-toggle"></i></div><div class="field-body"><label>Commentaire :</label><textarea placeholder="e.g. mandatory field, max 10 chars…" data-path="${path}">${anno.comment||''}</textarea><div class="field-meta"><label>Statut :</label><select data-path-status="${path}">${statusOpts}</select></div><button class="save-anno-btn" onclick="saveAnno(this)"><i class="ti ti-device-floppy"></i> Enregistrer</button></div>`;
+    fieldList.appendChild(row);
+  });
+}
+function toggleField(header){const body=header.nextElementSibling;body.classList.toggle('open');header.querySelector('.field-toggle').classList.toggle('open');}
+function saveAnno(btn){const body=btn.closest('.field-body');const ta=body.querySelector('textarea');const sel=body.querySelector('select');const path=ta.dataset.path;const comment=ta.value.trim();const statut=sel.value;if(comment||statut)annotations[path]={comment,statut};else delete annotations[path];const badge=document.getElementById('badge-'+path.replace(/[^a-zA-Z0-9]/g,'_'));if(badge)badge.style.display=(comment||statut)?'':'none';btn.innerHTML='<i class="ti ti-check"></i> Saved!';btn.classList.add('saved');setTimeout(()=>{btn.innerHTML='<i class="ti ti-device-floppy"></i> Save';btn.classList.remove('saved');},1800);updateExportBar();}
+function updateExportBar(){if(!currentXsdContent){annoExportBar.style.display='none';return;}const count=Object.keys(annotations).length;annoExportBar.style.display='block';annoExportMsg.textContent=count>0?`${count} annotation(s) — exportez le XSD annoté et/ou l'Excel.`:'No annotations yet. You can still export.';}
+function injectAnnotations(xsd){const lines=xsd.split('\n');const result=[];for(let i=0;i<lines.length;i++){const line=lines[i];result.push(line);const m=line.match(/xs:element\s+name="([^"]+)"/);if(m){const elName=m[1];const matchKey=Object.keys(annotations).find(k=>{const parts=k.split(' › ');return parts[parts.length-1]===elName;});if(matchKey&&(annotations[matchKey].comment||annotations[matchKey].statut)){const indent=line.match(/^(\s*)/)[1]+'  ';const isSelfClosing=line.trim().endsWith('/>');const annoText=[annotations[matchKey].statut,annotations[matchKey].comment].filter(Boolean).join(' — ');if(isSelfClosing){result.pop();result.push(line.replace('/>','>')+'');result.push(`${indent}<xs:annotation>`);result.push(`${indent}  <xs:documentation>${annoText}</xs:documentation>`);result.push(`${indent}</xs:annotation>`);result.push(`${line.match(/^(\s*)/)[1]}</xs:element>`);}else{result.push(`${indent}<xs:annotation>`);result.push(`${indent}  <xs:documentation>${annoText}</xs:documentation>`);result.push(`${indent}</xs:annotation>`);}}}}return result.join('\n');}
+annoXsdBtn.addEventListener('click',()=>{const annotated=injectAnnotations(currentXsdContent);const blob=new Blob([annotated],{type:'application/xml'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=currentXsdFileName.replace(/\.xsd$/i,'')+'_annotated.xsd';a.click();URL.revokeObjectURL(url);});
+annoXlsxBtn.addEventListener('click',()=>{
+  const today=new Date().toLocaleDateString('en-GB');const baseName=currentXsdFileName.replace(/\.xsd$/i,'');
+  const headers=['Full path','Field','XSD Type','Status','Comment','Last updated'];
+  const rows=allFields.map(f=>{const anno=annotations[f.path]||{comment:'',statut:''};return[f.path,f.name,f.type||'complexType',anno.statut||'',anno.comment||'',anno.comment||anno.statut?today:''];});
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=[{wch:40},{wch:22},{wch:16},{wch:18},{wch:60},{wch:18}];
+  const annotated=allFields.filter(f=>annotations[f.path]&&(annotations[f.path].comment||annotations[f.path].statut));
+  const statCounts={};STATUTS.slice(1).forEach(s=>statCounts[s.val]=0);Object.values(annotations).forEach(a=>{if(a.statut&&statCounts[a.statut]!==undefined)statCounts[a.statut]++;});
+  const ws2=XLSX.utils.aoa_to_sheet([['Report — '+baseName],['Generated on',today],[''],['Indicator','Value'],['Total fields',allFields.length],['Annotated fields',annotated.length],['Without annotation',allFields.length-annotated.length],[''],['By status',''],...STATUTS.slice(1).map(s=>[s.label,statCounts[s.val]||0])]);
+  ws2['!cols']=[{wch:36},{wch:20}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Annotations');XLSX.utils.book_append_sheet(wb,ws2,'Summary');XLSX.writeFile(wb,baseName+'_annotations.xlsx');
+});
+
+// ══════════════════════════════════════
+// DIAGRAM ENGINE
+// ══════════════════════════════════════
+const diagCanvas=document.getElementById('diagCanvas');
+const diagSvg=document.getElementById('diagSvg');
+const diagEmpty=document.getElementById('diagEmpty');
+const diagTooltip=document.getElementById('diagTooltip');
+const zoomLabel=document.getElementById('zoomLabel');
+
+let diagScale=1,diagOffX=0,diagOffY=0;
+let isDragging=false,dragStartX=0,dragStartY=0,dragOffX=0,dragOffY=0;
+let diagNodes=[];
+
+// Load XSD from file input
+document.getElementById('diagXsdInput').addEventListener('change',e=>{
+  if(!e.target.files[0])return;
+  const reader=new FileReader();
+  reader.onload=ev=>{renderDiagram(ev.target.result);};
+  reader.readAsText(e.target.files[0],'UTF-8');
+});
+
+function parseXsdToTree(xsdContent){
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(xsdContent,'text/xml');
+  const ns={xs:'http://www.w3.org/2001/XMLSchema'};
+  function walk(el,parentName){
+    const tag=el.tagName.replace(/.*:/,'');
+    if(tag==='element'){
+      const name=el.getAttribute('name');
+      if(!name)return null;
+      const type=el.getAttribute('type')||'';
+      const minO=el.getAttribute('minOccurs')||'1';
+      const maxO=el.getAttribute('maxOccurs')||'1';
+      const hasComplex=!!el.querySelector('*|complexType,complexType');
+      const children=[];
+      const attrs=[];
+      const ct=el.querySelector('*|complexType,complexType');
+      if(ct){
+        const seq=ct.querySelector('*|sequence,sequence');
+        if(seq){Array.from(seq.children).forEach(c=>{const child=walk(c,name);if(child)children.push(child);});}
+        Array.from(ct.querySelectorAll('*|attribute,attribute')).forEach(a=>{attrs.push({name:a.getAttribute('name')||'',type:a.getAttribute('type')||'xs:string'});});
+      }
+      // annotation
+      const annoEl=el.querySelector('*|documentation,documentation');
+      const anno=annoEl?annoEl.textContent.trim():'';
+      return{name,type:hasComplex?'':type,minO,maxO,children,attrs,anno,id:'node_'+Math.random().toString(36).slice(2)};
+    }
+    return null;
+  }
+  // find root element
+  const rootEl=doc.querySelector('*|schema > *|element, schema > element');
+  if(!rootEl)return null;
+  return walk(rootEl,'');
+}
+
+// Layout: assign positions using a recursive top-down layout
+const NODE_W=180,NODE_HEAD_H=34,NODE_ROW_H=22,NODE_PAD=8;
+const H_GAP=60,V_GAP=80;
+
+function measureNode(node){
+  const rows=node.children.length+node.attrs.length+(node.type?1:0);
+  node._h=NODE_HEAD_H+Math.max(1,rows)*NODE_ROW_H+NODE_PAD*2;
+  node._w=NODE_W;
+  node.children.forEach(c=>measureNode(c));
+}
+
+function layoutTree(node,x,y){
+  node._x=x;node._y=y;
+  if(!node.children.length){node._subtreeW=node._w;return;}
+  let childX=0;
+  const childYBase=y+node._h+V_GAP;
+  node.children.forEach(c=>{
+    measureNode(c);
+    layoutTree(c,childX,childYBase);
+    childX+=c._subtreeW+H_GAP;
+  });
+  const totalW=childX-H_GAP;
+  // center parent over children
+  const firstChildX=node.children[0]._x;
+  const lastChild=node.children[node.children.length-1];
+  const childrenCenter=firstChildX+(lastChild._x+lastChild._w-firstChildX)/2;
+  const shift=childrenCenter-node._w/2-node._x;
+  shiftTree(node,shift,0,true);
+  node._subtreeW=Math.max(node._w,totalW);
+}
+
+function shiftTree(node,dx,dy,skipSelf){
+  if(!skipSelf){node._x+=dx;node._y+=dy;}
+  node.children.forEach(c=>shiftTree(c,dx,dy,false));
+}
+
+function collectNodes(node,arr){arr.push(node);node.children.forEach(c=>collectNodes(c,arr));}
+function collectEdges(node,arr){node.children.forEach(c=>{arr.push({from:node,to:c,maxO:c.maxO,minO:c.minO});collectEdges(c,arr);});}
+
+// CSS variable shim for SVG
+function cssVar(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+
+function renderDiagram(xsdContent){
+  const tree=parseXsdToTree(xsdContent);
+  if(!tree){diagEmpty.style.display='flex';diagSvg.style.display='none';return;}
+  measureNode(tree);
+  layoutTree(tree,0,0);
+
+  // collect all nodes & edges
+  diagNodes=[];
+  const edges=[];
+  collectNodes(tree,diagNodes);
+  collectEdges(tree,edges);
+
+  // compute bounding box
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  diagNodes.forEach(n=>{minX=Math.min(minX,n._x);minY=Math.min(minY,n._y);maxX=Math.max(maxX,n._x+n._w);maxY=Math.max(maxY,n._y+n._h);});
+  const pad=60;
+  const totalW=maxX-minX+pad*2;
+  const totalH=maxY-minY+pad*2;
+  // offset all nodes
+  diagNodes.forEach(n=>{n._x+=(-minX+pad);n._y+=(-minY+pad);});
+
+  // colors
+  const cAccent=cssVar('--accent')||'#4f56e8';
+  const cNodeBg=cssVar('--node-bg')||'#fff';
+  const cNodeText=cssVar('--text')||'#1a1a2e';
+  const cMuted=cssVar('--muted')||'#6b6b80';
+  const cBorder=cssVar('--border')||'#e2e0d8';
+  const cAttrBg=cssVar('--node-attr')||'#f0f4ff';
+  const cAttrText=cssVar('--node-attr-text')||'#4f56e8';
+  const cArrow=cssVar('--arrow')||'#6b6b80';
+  const cCanvas=cssVar('--canvas-bg')||'#f0f2f8';
+
+  // Build SVG
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
+  svg+=`<defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="${cArrow}"/>
+    </marker>
+    <marker id="arrow-many" markerWidth="12" markerHeight="12" refX="2" refY="6" orient="auto">
+      <line x1="0" y1="0" x2="0" y2="12" stroke="${cArrow}" stroke-width="1.5"/>
+      <line x1="3" y1="0" x2="3" y2="12" stroke="${cArrow}" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.10"/>
+    </filter>
+  </defs>`;
+
+  // Draw edges first (behind nodes)
+  edges.forEach(({from,to,minO,maxO})=>{
+    const x1=from._x+from._w/2;
+    const y1=from._y+from._h;
+    const x2=to._x+to._w/2;
+    const y2=to._y;
+    const my=(y1+y2)/2;
+    const path=`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+    const isMany=maxO==='unbounded';
+    const label=`${minO}..${isMany?'∞':maxO}`;
+    svg+=`<path d="${path}" fill="none" stroke="${cArrow}" stroke-width="1.5" ${isMany?'stroke-dasharray="5,3"':''} marker-end="url(#arrow)"/>`;
+    // multiplicity label
+    const lx=(x1+x2)/2+6;const ly=(y1+y2)/2;
+    svg+=`<text x="${lx}" y="${ly}" font-size="11" fill="${cMuted}" font-family="system-ui,sans-serif" text-anchor="middle">${label}</text>`;
+  });
+
+  // Draw nodes
+  diagNodes.forEach(node=>{
+    const x=node._x,y=node._y,w=node._w;
+    const rows=[];
+    if(node.type) rows.push({kind:'type',label:node.type.replace('xs:',''),icon:'◆'});
+    node.attrs.forEach(a=>rows.push({kind:'attr',label:`@${a.name}`,type:a.type.replace('xs:','')}));
+    node.children.forEach(c=>rows.push({kind:'child',label:c.name,type:c.type?c.type.replace('xs:',''):''}));
+    const h=NODE_HEAD_H+Math.max(1,rows.length)*NODE_ROW_H+NODE_PAD*2;
+
+    // shadow + card
+    svg+=`<g class="diag-node" data-id="${node.id}" style="cursor:pointer;">`;
+    svg+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${cNodeBg}" stroke="${cAccent}" stroke-width="1.5" filter="url(#shadow)"/>`;
+    // header
+    svg+=`<rect x="${x}" y="${y}" width="${w}" height="${NODE_HEAD_H}" rx="8" fill="${cAccent}"/>`;
+    svg+=`<rect x="${x}" y="${y+NODE_HEAD_H-8}" width="${w}" height="8" fill="${cAccent}"/>`;
+    // title
+    const shortName=node.name.length>18?node.name.slice(0,16)+'…':node.name;
+    svg+=`<text x="${x+w/2}" y="${y+NODE_HEAD_H/2+5}" font-size="13" font-weight="700" fill="#fff" font-family="system-ui,sans-serif" text-anchor="middle">${shortName}</text>`;
+
+    // rows
+    let ry=y+NODE_HEAD_H+NODE_PAD;
+    rows.forEach((row,i)=>{
+      const rowBg=i%2===0?'transparent':cAttrBg;
+      if(rowBg!=='transparent') svg+=`<rect x="${x+2}" y="${ry-3}" width="${w-4}" height="${NODE_ROW_H}" fill="${rowBg}" rx="3"/>`;
+      if(row.kind==='attr'){
+        svg+=`<text x="${x+10}" y="${ry+13}" font-size="11" fill="${cAttrText}" font-family="monospace" font-weight="600">@${row.label.replace('@','')}</text>`;
+        if(row.type) svg+=`<text x="${x+w-8}" y="${ry+13}" font-size="10" fill="${cMuted}" font-family="monospace" text-anchor="end">${row.type}</text>`;
+      } else if(row.kind==='child'){
+        svg+=`<text x="${x+10}" y="${ry+13}" font-size="11" fill="${cNodeText}" font-family="system-ui,sans-serif">⬦ ${row.label}</text>`;
+        if(row.type) svg+=`<text x="${x+w-8}" y="${ry+13}" font-size="10" fill="${cMuted}" font-family="monospace" text-anchor="end">${row.type}</text>`;
+      } else {
+        svg+=`<text x="${x+10}" y="${ry+13}" font-size="11" fill="${cMuted}" font-family="monospace">${row.icon} ${row.label}</text>`;
+      }
+      ry+=NODE_ROW_H;
+    });
+    if(!rows.length){
+      svg+=`<text x="${x+w/2}" y="${ry+13}" font-size="11" fill="${cMuted}" font-family="system-ui,sans-serif" text-anchor="middle" font-style="italic">vide</text>`;
+    }
+    svg+=`</g>`;
+  });
+
+  svg+=`</svg>`;
+
+  diagSvg.innerHTML=svg;
+  diagSvg.style.display='block';
+  diagEmpty.style.display='none';
+
+  // reset pan/zoom
+  diagScale=1;diagOffX=20;diagOffY=20;
+  // auto-fit
+  const canvasW=diagCanvas.clientWidth||700;
+  const canvasH=diagCanvas.clientHeight||600;
+  const scaleX=canvasW/totalW;const scaleY=canvasH/totalH;
+  diagScale=Math.min(scaleX,scaleY,1)*0.9;
+  diagOffX=(canvasW-totalW*diagScale)/2;
+  diagOffY=(canvasH-totalH*diagScale)/2;
+  applyTransform();
+
+  // Tooltips on nodes
+  diagSvg.querySelectorAll('.diag-node').forEach(g=>{
+    const id=g.dataset.id;
+    const node=diagNodes.find(n=>n.id===id);
+    if(!node)return;
+    g.addEventListener('mouseenter',ev=>showTooltip(ev,node));
+    g.addEventListener('mousemove',ev=>{diagTooltip.style.left=(ev.clientX+14)+'px';diagTooltip.style.top=(ev.clientY-10)+'px';});
+    g.addEventListener('mouseleave',()=>{diagTooltip.style.display='none';});
+  });
+}
+
+function showTooltip(ev,node){
+  let html=`<strong>${node.name}</strong>`;
+  if(node.type) html+=`Type : ${node.type}<br>`;
+  html+=`Occurrences : ${node.minO}..${node.maxO==='unbounded'?'∞':node.maxO}<br>`;
+  if(node.attrs.length) html+=`Attributs : ${node.attrs.map(a=>a.name).join(', ')}<br>`;
+  if(node.children.length) html+=`Enfants : ${node.children.length}<br>`;
+  if(node.anno) html+=`<br><em style="color:var(--anno-text)">💬 ${node.anno}</em>`;
+  diagTooltip.innerHTML=html;
+  diagTooltip.style.display='block';
+  diagTooltip.style.left=(ev.clientX+14)+'px';
+  diagTooltip.style.top=(ev.clientY-10)+'px';
+}
+
+function applyTransform(){
+  diagSvg.style.transform=`translate(${diagOffX}px,${diagOffY}px) scale(${diagScale})`;
+  diagSvg.style.transformOrigin='0 0';
+  zoomLabel.textContent=Math.round(diagScale*100)+'%';
+}
+function zoomDiag(delta){
+  diagScale=Math.max(0.15,Math.min(3,diagScale+delta));
+  applyTransform();
+}
+function resetDiag(){
+  const canvasW=diagCanvas.clientWidth||700;
+  const canvasH=diagCanvas.clientHeight||600;
+  const svgEl=diagSvg.querySelector('svg');
+  if(!svgEl)return;
+  const tw=parseFloat(svgEl.getAttribute('width'))||800;
+  const th=parseFloat(svgEl.getAttribute('height'))||600;
+  diagScale=Math.min(canvasW/tw,canvasH/th,1)*0.9;
+  diagOffX=(canvasW-tw*diagScale)/2;
+  diagOffY=(canvasH-th*diagScale)/2;
+  applyTransform();
+}
+
+// Pan
+diagCanvas.addEventListener('mousedown',e=>{isDragging=true;dragStartX=e.clientX;dragStartY=e.clientY;dragOffX=diagOffX;dragOffY=diagOffY;diagCanvas.classList.add('grabbing');});
+window.addEventListener('mousemove',e=>{if(!isDragging)return;diagOffX=dragOffX+(e.clientX-dragStartX);diagOffY=dragOffY+(e.clientY-dragStartY);applyTransform();});
+window.addEventListener('mouseup',()=>{isDragging=false;diagCanvas.classList.remove('grabbing');});
+diagCanvas.addEventListener('wheel',e=>{e.preventDefault();const delta=e.deltaY<0?0.1:-0.1;diagScale=Math.max(0.15,Math.min(3,diagScale+delta));applyTransform();},{passive:false});
+// Touch pan
+let touchStartX=0,touchStartY=0,touchOffX=0,touchOffY=0;
+diagCanvas.addEventListener('touchstart',e=>{if(e.touches.length===1){touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;touchOffX=diagOffX;touchOffY=diagOffY;}});
+diagCanvas.addEventListener('touchmove',e=>{if(e.touches.length===1){e.preventDefault();diagOffX=touchOffX+(e.touches[0].clientX-touchStartX);diagOffY=touchOffY+(e.touches[0].clientY-touchStartY);applyTransform();}},{passive:false});
+
+function getSvgContent(){
+  const svgEl=diagSvg.querySelector('svg');
+  if(!svgEl){alert('No diagram to download.');return null;}
+  // Embed font + styles inline
+  const style=`<style>text{font-family:system-ui,sans-serif;}</style>`;
+  const clone=svgEl.cloneNode(true);
+  clone.insertAdjacentHTML('afterbegin',style);
+  return new XMLSerializer().serializeToString(clone);
+}
+
+function downloadSVG(){
+  const content=getSvgContent();if(!content)return;
+  const blob=new Blob([content],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='schema_xsd.svg';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPNG(){
+  const svgEl=diagSvg.querySelector('svg');
+  if(!svgEl){alert('No diagram to download.');return;}
+  const content=getSvgContent();
+  const w=parseFloat(svgEl.getAttribute('width'))||800;
+  const h=parseFloat(svgEl.getAttribute('height'))||600;
+  const scale=2; // retina quality
+  const canvas=document.createElement('canvas');
+  canvas.width=w*scale;canvas.height=h*scale;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  // fill background
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim()||'#f0f2f8';
+  ctx.fillRect(0,0,w,h);
+  const img=new Image();
+  const blob=new Blob([content],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  img.onload=()=>{
+    ctx.drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download='schema_xsd.png';a.click();
+  };
+  img.src=url;
+}
+</script>
+</body>
+</html>
